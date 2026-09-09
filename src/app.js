@@ -3,7 +3,7 @@ const app = express();
 
 app.use(express.json());
 // const unusedVariable = "this will break eslint"; // Unused
-const FAKE_AWS_SECRET = "AKIAIMNOJVGFDXYZ1234";
+// const FAKE_AWS_SECRET = "AKIAIMNOJVGFDXYZ1234";
 
 app.get('/healthz', (req, res) => {
   res.status(200).json({ status: 'healthy', uptime: process.uptime() });

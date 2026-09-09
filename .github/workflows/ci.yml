@@ -56,10 +56,10 @@ jobs:
           path: coverage/
 
   # -------------------------------------------------------------
-  # Job 2: Optimized Docker Build with Layer Caching
+  # Job 2: Optimized Docker Build with Layer Caching & Security Scan
   # -------------------------------------------------------------
   docker-build:
-    name: Optimized Multi-Stage Docker Build
+    name: Optimized Multi-Stage Docker Build & Container Security
     needs: [quality-gate]
     runs-on: ubuntu-latest
 
@@ -70,11 +70,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # इमेज बिल्ड करून स्थानिक डॉकर डेमॉनमध्ये लोड करणे
       - name: Build Docker Image with Layer Caching
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: false
-          tags: cloudpulse-api:latest
+          load: true # Trivy ला स्कॅन करण्यासाठी इमेज स्थानिक डेमॉनमध्ये लोड करणे
+          tags: cloudpulse-api-app:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # DevSecOps Gate 3: Container Vulnerability Scanning (Trivy)
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'cloudpulse-api-app:latest'
+          format: 'table'
+          exit-code: '1'          # CRITICAL व्हल्नरेबिलिटी सापडल्यास पाइपलाइन FAIL करणे
+          ignore-unfixed: true   # ज्यांचा फिक्स उपलब्ध नाही असे बग्स दुर्लक्षित करणे
+          severity: 'CRITICAL,HIGH'
