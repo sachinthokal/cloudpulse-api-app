@@ -9,8 +9,12 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# OS package upgrade (libcrypto3 / libssl3 patch fixed)
+RUN apk update && apk upgrade --no-cache
+
 COPY package*.json ./
 
+# prod lib installtion
 RUN npm ci --only=production \
     && npm cache clean --force \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
