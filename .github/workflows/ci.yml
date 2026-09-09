@@ -8,34 +8,46 @@ on:
 
 jobs:
   # -------------------------------------------------------------
-  # Job 1: Code Quality & Automated Testing Gates
+  # Job 1: Code Quality, Security & Automated Testing Gates
   # -------------------------------------------------------------
   quality-gate:
-    name: Lint, Test & Coverage Gate
+    name: Lint, Test, Security & Coverage Gate
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # DevSecOps Gate 1: Secret Scanning
+      - name: Run Gitleaks Secret Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm' # actions/cache: Dependency Caching doing super fast build
+          cache: 'npm'
 
       - name: Install Dependencies
         run: npm ci
 
-      # Gate 1: Code Style Enforcement
+      # DevSecOps Gate 2: Dependency Security Audit
+      - name: Run Dependency Vulnerability Audit
+        run: npm audit --audit-level=high
+
+      # Quality Gate 1: Code Style Enforcement
       - name: Run ESLint
         run: npm run lint
 
-      # Gate 2: Automated Unit Tests + 80% Coverage Gate
+      # Quality Gate 2: Automated Unit Tests + 80% Coverage Gate
       - name: Run Unit Tests & Check Coverage
         run: npm test
 
-      # Test Reports (Artifact)
+      # Artifacts Upload
       - name: Upload Test Coverage Artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -48,23 +60,21 @@ jobs:
   # -------------------------------------------------------------
   docker-build:
     name: Optimized Multi-Stage Docker Build
-    needs: [quality-gate]  # Without passing quality-gate, build will not be create.
+    needs: [quality-gate]
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Set Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # GitHub Actions Cache use for Docker Layer Cache
       - name: Build Docker Image with Layer Caching
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: false # For local test
+          push: false
           tags: cloudpulse-api:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
