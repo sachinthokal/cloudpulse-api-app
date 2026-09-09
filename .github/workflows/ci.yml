@@ -1,4 +1,4 @@
-name: CI Quality Gates & Build Optimization
+name: CI Quality Gates & DevSecOps Pipeline
 
 on:
   push:
@@ -6,9 +6,14 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+  packages: write
+  id-token: write # Required for Cosign keyless signing via GitHub OIDC
+
 jobs:
   # -------------------------------------------------------------
-  # Job 1: Code Quality, Security & Automated Testing Gates
+  # Job 1: Quality, Secret & Dependency Security Gates
   # -------------------------------------------------------------
   quality-gate:
     name: Lint, Test, Security & Coverage Gate
@@ -20,7 +25,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # DevSecOps Gate 1: Secret Scanning
       - name: Run Gitleaks Secret Scanner
         uses: gitleaks/gitleaks-action@v2
         env:
@@ -35,19 +39,15 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      # DevSecOps Gate 2: Dependency Security Audit
       - name: Run Dependency Vulnerability Audit
         run: npm audit --audit-level=high
 
-      # Quality Gate 1: Code Style Enforcement
       - name: Run ESLint
         run: npm run lint
 
-      # Quality Gate 2: Automated Unit Tests + 80% Coverage Gate
       - name: Run Unit Tests & Check Coverage
         run: npm test
 
-      # Artifacts Upload
       - name: Upload Test Coverage Artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -56,10 +56,10 @@ jobs:
           path: coverage/
 
   # -------------------------------------------------------------
-  # Job 2: Optimized Docker Build with Layer Caching & Security Scan
+  # Job 2: Multi-Stage Build, Security Scanning & Image Signing
   # -------------------------------------------------------------
   docker-build:
-    name: Optimized Multi-Stage Docker Build & Container Security
+    name: Build, Scan & Cosign Image
     needs: [quality-gate]
     runs-on: ubuntu-latest
 
@@ -70,22 +70,47 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # इमेज बिल्ड करून स्थानिक डॉकर डेमॉनमध्ये लोड करणे
-      - name: Build Docker Image with Layer Caching
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build & load locally for Trivy scanning first
+      - name: Build Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
-          load: true # Trivy ला स्कॅन करण्यासाठी इमेज स्थानिक डेमॉनमध्ये लोड करणे
-          tags: cloudpulse-api-app:latest
+          load: true
+          tags: ghcr.io/${{ github.repository }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # DevSecOps Gate 3: Container Vulnerability Scanning (Trivy)
+      # DevSecOps Gate: Trivy Vulnerability Scanner
       - name: Run Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'cloudpulse-api-app:latest'
+          image-ref: ghcr.io/${{ github.repository }}:latest
           format: 'table'
-          exit-code: '1'          # CRITICAL व्हल्नरेबिलिटी सापडल्यास पाइपलाइन FAIL करणे
-          ignore-unfixed: true   # ज्यांचा फिक्स उपलब्ध नाही असे बग्स दुर्लक्षित करणे
+          exit-code: '1'
+          ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
+
+      # Push the image only after Trivy passes
+      - name: Push Docker Image to GHCR
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: docker push ghcr.io/${{ github.repository }}:latest
+
+      # Install Cosign
+      - name: Install Cosign
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: sigstore/cosign-installer@v3
+
+      # Sign the image using Keyless OIDC
+      - name: Sign the Published Docker Image
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          COSIGN_YES: "true"
+        run: |
+          cosign sign ghcr.io/${{ github.repository }}:latest
