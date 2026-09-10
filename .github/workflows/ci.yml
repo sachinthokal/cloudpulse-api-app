@@ -88,28 +88,29 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Build & load locally using the short SHA tag for Trivy scanning
+      # Build & load locally for Trivy scanning
       - name: Build Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
           load: true
-          tags: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          tags: ghcr.io/${{ github.repository }}:local-test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # DevSecOps Gate: Trivy Scan using SHA Tag
+      # DevSecOps Gate: Trivy Scan
       - name: Run Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          image-ref: ghcr.io/${{ github.repository }}:local-test
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
 
-      # Push all tags (latest + sha-xxxxxxx) only after Trivy passes
+      # Push all tags only after Trivy passes
       - name: Push Docker Image with Tags to GHCR
+        id: build-and-push
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: docker/build-push-action@v5
         with:
@@ -125,10 +126,10 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: sigstore/cosign-installer@v3
 
-      # Sign the specific SHA tag (Immutable Signature)
-      - name: Sign the Immutable Docker Image Tag
+      # Sign the image using its exact immutable Digest
+      - name: Sign the Published Docker Image
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           COSIGN_YES: "true"
         run: |
-          cosign sign ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          cosign sign ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }}
