@@ -1,0 +1,1711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>CloudPulse | DevSecOps Dashboard</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #07111f;
+      --panel: #0d1b2a;
+      --panel-2: #101f31;
+      --border: rgba(255, 255, 255, 0.09);
+      --text: #e8f0f7;
+      --muted: #8da1b5;
+      --cyan: #00d9ff;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --purple: #8b5cf6;
+    }
+
+    body {
+      font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+      background:
+        radial-gradient(circle at 10% 10%, rgba(0, 217, 255, 0.08), transparent 30%),
+        radial-gradient(circle at 90% 20%, rgba(139, 92, 246, 0.08), transparent 30%),
+        var(--bg);
+
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* -------------------------------------------------------
+       HEADER
+    ------------------------------------------------------- */
+
+    header {
+      border-bottom: 1px solid var(--border);
+      background: rgba(7, 17, 31, 0.82);
+      backdrop-filter: blur(15px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-inner {
+      max-width: 1400px;
+      margin: auto;
+      padding: 18px 28px;
+
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+    }
+
+    .logo {
+      width: 42px;
+      height: 42px;
+
+      border-radius: 12px;
+
+      display: grid;
+      place-items: center;
+
+      background: linear-gradient(
+        135deg,
+        var(--cyan),
+        var(--purple)
+      );
+
+      color: white;
+      font-weight: 900;
+      font-size: 18px;
+
+      box-shadow: 0 0 25px rgba(0, 217, 255, 0.25);
+    }
+
+    .brand h1 {
+      font-size: 20px;
+      letter-spacing: -0.5px;
+    }
+
+    .brand p {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .live-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      padding: 8px 13px;
+
+      border: 1px solid rgba(34, 197, 94, 0.25);
+      background: rgba(34, 197, 94, 0.07);
+
+      border-radius: 999px;
+
+      color: #86efac;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--green);
+      border-radius: 50%;
+
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      70% {
+        box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+      }
+    }
+
+    /* -------------------------------------------------------
+       MAIN
+    ------------------------------------------------------- */
+
+    main {
+      max-width: 1400px;
+      margin: auto;
+      padding: 32px 28px 60px;
+    }
+
+    .hero {
+      margin-bottom: 28px;
+    }
+
+    .hero h2 {
+      font-size: clamp(28px, 4vw, 46px);
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      margin-bottom: 10px;
+    }
+
+    .hero h2 span {
+      color: var(--cyan);
+    }
+
+    .hero p {
+      color: var(--muted);
+      max-width: 760px;
+      line-height: 1.7;
+    }
+
+    /* -------------------------------------------------------
+       CARDS
+    ------------------------------------------------------- */
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .card {
+      background:
+        linear-gradient(
+          145deg,
+          rgba(255, 255, 255, 0.045),
+          rgba(255, 255, 255, 0.015)
+        );
+
+      border: 1px solid var(--border);
+
+      border-radius: 18px;
+
+      padding: 20px;
+
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.18);
+    }
+
+    .metric-card {
+      min-height: 145px;
+    }
+
+    .metric-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .metric-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+
+      display: grid;
+      place-items: center;
+
+      background: rgba(0, 217, 255, 0.08);
+      color: var(--cyan);
+    }
+
+    .metric-value {
+      font-size: 27px;
+      font-weight: 750;
+      letter-spacing: -0.7px;
+    }
+
+    .metric-sub {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* -------------------------------------------------------
+       SECTION
+    ------------------------------------------------------- */
+
+    .section {
+      margin-top: 28px;
+    }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      margin-bottom: 15px;
+    }
+
+    .section-title h3 {
+      font-size: 18px;
+    }
+
+    .section-title span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* -------------------------------------------------------
+       ENDPOINT MONITOR
+    ------------------------------------------------------- */
+
+    .endpoint-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .endpoint-card {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .endpoint-card::before {
+      content: "";
+
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+
+      background: var(--cyan);
+    }
+
+    .endpoint-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      margin-bottom: 15px;
+    }
+
+    .endpoint-name {
+      font-family: monospace;
+      font-size: 14px;
+      color: #b8f5ff;
+    }
+
+    .method {
+      padding: 4px 8px;
+
+      border-radius: 6px;
+
+      font-size: 10px;
+      font-weight: 800;
+
+      color: #86efac;
+      background: rgba(34, 197, 94, 0.1);
+    }
+
+    .endpoint-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--yellow);
+    }
+
+    .status-dot.success {
+      background: var(--green);
+    }
+
+    .status-dot.error {
+      background: var(--red);
+    }
+
+    pre {
+      background: #050c15;
+
+      border: 1px solid rgba(255,255,255,0.06);
+
+      border-radius: 10px;
+
+      padding: 12px;
+
+      overflow: auto;
+
+      max-height: 170px;
+
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      line-height: 1.6;
+
+      color: #a9d8e0;
+    }
+
+    /* -------------------------------------------------------
+       PIPELINE
+    ------------------------------------------------------- */
+
+    .pipeline-wrapper {
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+
+    .pipeline {
+      min-width: 1050px;
+
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    .pipeline-stage {
+      min-width: 130px;
+
+      padding: 16px 12px;
+
+      background: var(--panel);
+
+      border: 1px solid var(--border);
+
+      border-radius: 14px;
+
+      text-align: center;
+
+      position: relative;
+    }
+
+    .stage-icon {
+      width: 38px;
+      height: 38px;
+
+      margin: 0 auto 10px;
+
+      display: grid;
+      place-items: center;
+
+      border-radius: 10px;
+
+      background: rgba(0, 217, 255, 0.08);
+
+      color: var(--cyan);
+
+      font-weight: 800;
+    }
+
+    .stage-name {
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .stage-desc {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .stage-success {
+      border-color: rgba(34, 197, 94, 0.35);
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.05);
+    }
+
+    .stage-success .stage-icon {
+      color: var(--green);
+      background: rgba(34, 197, 94, 0.1);
+    }
+
+    .arrow {
+      width: 35px;
+      height: 2px;
+      background: linear-gradient(
+        90deg,
+        var(--cyan),
+        var(--purple)
+      );
+
+      position: relative;
+    }
+
+    .arrow::after {
+      content: "›";
+
+      position: absolute;
+      right: -2px;
+      top: -12px;
+
+      color: var(--cyan);
+      font-size: 22px;
+    }
+
+    /* -------------------------------------------------------
+       DEPLOYMENT
+    ------------------------------------------------------- */
+
+    .deployment-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .deployment {
+      padding: 22px;
+    }
+
+    .deployment-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      margin-bottom: 20px;
+    }
+
+    .environment {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .environment-icon {
+      width: 40px;
+      height: 40px;
+
+      display: grid;
+      place-items: center;
+
+      border-radius: 12px;
+
+      background: rgba(139, 92, 246, 0.1);
+
+      color: var(--purple);
+    }
+
+    .environment h4 {
+      font-size: 15px;
+    }
+
+    .environment p {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 3px;
+    }
+
+    .badge {
+      padding: 5px 9px;
+
+      border-radius: 999px;
+
+      font-size: 10px;
+      font-weight: 800;
+
+      color: #86efac;
+      background: rgba(34, 197, 94, 0.1);
+    }
+
+    .details {
+      display: grid;
+      gap: 11px;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 15px;
+
+      padding-bottom: 9px;
+
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+
+      font-size: 12px;
+    }
+
+    .detail-row span:first-child {
+      color: var(--muted);
+    }
+
+    .detail-row span:last-child {
+      text-align: right;
+      font-family: monospace;
+      max-width: 70%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* -------------------------------------------------------
+       FOOTER
+    ------------------------------------------------------- */
+
+    footer {
+      text-align: center;
+
+      padding: 30px;
+
+      color: var(--muted);
+
+      font-size: 11px;
+    }
+
+    .refresh-info {
+      margin-top: 7px;
+      color: #60778d;
+    }
+
+    /* -------------------------------------------------------
+       RESPONSIVE
+    ------------------------------------------------------- */
+
+    @media (max-width: 1000px) {
+      .grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .endpoint-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .deployment-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 650px) {
+      .header-inner {
+        padding: 15px 18px;
+      }
+
+      main {
+        padding: 25px 18px 50px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .brand p {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- =========================================================
+       HEADER
+  ========================================================== -->
+
+  <header>
+    <div class="header-inner">
+
+      <div class="brand">
+
+        <div class="logo">
+          CP
+        </div>
+
+        <div>
+          <h1>CloudPulse</h1>
+          <p>Production DevSecOps Control Center</p>
+        </div>
+
+      </div>
+
+      <div class="live-status">
+        <span class="pulse-dot"></span>
+        LIVE API
+      </div>
+
+    </div>
+  </header>
+
+
+  <!-- =========================================================
+       MAIN
+  ========================================================== -->
+
+  <main>
+
+    <section class="hero">
+
+      <h2>
+        CloudPulse
+        <span>DevSecOps Dashboard</span>
+      </h2>
+
+      <p>
+        Real-time application health, API telemetry and CI/CD deployment
+        visibility for the CloudPulse production environment.
+      </p>
+
+    </section>
+
+
+    <!-- =======================================================
+         LIVE METRICS
+    ======================================================== -->
+
+    <section class="grid">
+
+      <div class="card metric-card">
+
+        <div class="metric-top">
+          <span class="metric-label">
+            API Status
+          </span>
+
+          <div class="metric-icon">
+            ✓
+          </div>
+        </div>
+
+        <div
+          id="apiStatus"
+          class="metric-value"
+        >
+          Checking...
+        </div>
+
+        <div
+          id="apiStatusSub"
+          class="metric-sub"
+        >
+          Connecting to API
+        </div>
+
+      </div>
+
+
+      <div class="card metric-card">
+
+        <div class="metric-top">
+          <span class="metric-label">
+            Application Version
+          </span>
+
+          <div class="metric-icon">
+            V
+          </div>
+        </div>
+
+        <div
+          id="appVersion"
+          class="metric-value"
+        >
+          —
+        </div>
+
+        <div class="metric-sub">
+          CloudPulse API
+        </div>
+
+      </div>
+
+
+      <div class="card metric-card">
+
+        <div class="metric-top">
+          <span class="metric-label">
+            Uptime
+          </span>
+
+          <div class="metric-icon">
+            ↑
+          </div>
+        </div>
+
+        <div
+          id="uptime"
+          class="metric-value"
+        >
+          —
+        </div>
+
+        <div class="metric-sub">
+          Node.js process uptime
+        </div>
+
+      </div>
+
+
+      <div class="card metric-card">
+
+        <div class="metric-top">
+          <span class="metric-label">
+            Last API Check
+          </span>
+
+          <div class="metric-icon">
+            ◷
+          </div>
+        </div>
+
+        <div
+          id="lastCheck"
+          class="metric-value"
+        >
+          —
+        </div>
+
+        <div class="metric-sub">
+          Auto refresh enabled
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =======================================================
+         API ENDPOINT MONITOR
+    ======================================================== -->
+
+    <section class="section">
+
+      <div class="section-title">
+
+        <h3>
+          API Endpoint Monitor
+        </h3>
+
+        <span>
+          Live requests
+        </span>
+
+      </div>
+
+
+      <div class="endpoint-grid">
+
+
+        <!-- HEALTH -->
+
+        <div class="card endpoint-card">
+
+          <div class="endpoint-header">
+
+            <span class="endpoint-name">
+              /health
+            </span>
+
+            <span class="method">
+              GET
+            </span>
+
+          </div>
+
+          <div class="endpoint-status">
+
+            <span
+              id="healthDot"
+              class="status-dot"
+            ></span>
+
+            <span id="healthStatus">
+              Checking...
+            </span>
+
+          </div>
+
+          <pre id="healthResponse">Loading...</pre>
+
+        </div>
+
+
+        <!-- HEALTHZ -->
+
+        <div class="card endpoint-card">
+
+          <div class="endpoint-header">
+
+            <span class="endpoint-name">
+              /healthz
+            </span>
+
+            <span class="method">
+              GET
+            </span>
+
+          </div>
+
+          <div class="endpoint-status">
+
+            <span
+              id="healthzDot"
+              class="status-dot"
+            ></span>
+
+            <span id="healthzStatus">
+              Checking...
+            </span>
+
+          </div>
+
+          <pre id="healthzResponse">Loading...</pre>
+
+        </div>
+
+
+        <!-- PULSE -->
+
+        <div class="card endpoint-card">
+
+          <div class="endpoint-header">
+
+            <span class="endpoint-name">
+              /api/v1/pulse
+            </span>
+
+            <span class="method">
+              GET
+            </span>
+
+          </div>
+
+          <div class="endpoint-status">
+
+            <span
+              id="pulseDot"
+              class="status-dot"
+            ></span>
+
+            <span id="pulseStatus">
+              Checking...
+            </span>
+
+          </div>
+
+          <pre id="pulseResponse">Loading...</pre>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =======================================================
+         CICD PIPELINE
+    ======================================================== -->
+
+    <section class="section">
+
+      <div class="section-title">
+
+        <h3>
+          CI/CD Pipeline
+        </h3>
+
+        <span>
+          GitHub Actions • DevSecOps
+        </span>
+
+      </div>
+
+
+      <div class="card pipeline-wrapper">
+
+        <div class="pipeline">
+
+
+          <div class="pipeline-stage stage-success">
+
+            <div class="stage-icon">
+              01
+            </div>
+
+            <div class="stage-name">
+              Quality Gate
+            </div>
+
+            <div class="stage-desc">
+              Lint • Test • Audit
+            </div>
+
+          </div>
+
+
+          <div class="arrow"></div>
+
+
+          <div class="pipeline-stage stage-success">
+
+            <div class="stage-icon">
+              02
+            </div>
+
+            <div class="stage-name">
+              Docker Build
+            </div>
+
+            <div class="stage-desc">
+              Buildx
+            </div>
+
+          </div>
+
+
+          <div class="arrow"></div>
+
+
+          <div class="pipeline-stage stage-success">
+
+            <div class="stage-icon">
+              03
+            </div>
+
+            <div class="stage-name">
+              Trivy Scan
+            </div>
+
+            <div class="stage-desc">
+              HIGH / CRITICAL
+            </div>
+
+          </div>
+
+
+          <div class="arrow"></div>
+
+
+          <div class="pipeline-stage stage-success">
+
+            <div class="stage-icon">
+              04
+            </div>
+
+            <div class="stage-name">
+              SBOM
+            </div>
+
+            <div class="stage-desc">
+              SPDX JSON
+            </div>
+
+          </div>
+
+
+          <div class="arrow"></div>
+
+
+          <div class="pipeline-stage stage-success">
+
+            <div class="stage-icon">
+              05
+            </div>
+
+            <div class="stage-name">
+              Docker Hub
+            </div>
+
+            <div class="stage-desc">
+              Push Image
+            </div>
+
+          </div>
+
+
+          <div class="arrow"></div>
+
+
+          <div class="pipeline-stage stage-success">
+
+            <div class="stage-icon">
+              06
+            </div>
+
+            <div class="stage-name">
+              Cosign
+            </div>
+
+            <div class="stage-desc">
+              Image Signing
+            </div>
+
+          </div>
+
+
+          <div class="arrow"></div>
+
+
+          <div class="pipeline-stage stage-success">
+
+            <div class="stage-icon">
+              07
+            </div>
+
+            <div class="stage-name">
+              Staging
+            </div>
+
+            <div class="stage-desc">
+              Health Check
+            </div>
+
+          </div>
+
+
+          <div class="arrow"></div>
+
+
+          <div class="pipeline-stage stage-success">
+
+            <div class="stage-icon">
+              08
+            </div>
+
+            <div class="stage-name">
+              Production
+            </div>
+
+            <div class="stage-desc">
+              Azure VM
+            </div>
+
+          </div>
+
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =======================================================
+         DEPLOYMENT INFORMATION
+    ======================================================== -->
+
+    <section class="section">
+
+      <div class="section-title">
+
+        <h3>
+          Deployment Architecture
+        </h3>
+
+        <span>
+          Current application topology
+        </span>
+
+      </div>
+
+
+      <div class="deployment-grid">
+
+
+        <!-- STAGING -->
+
+        <div class="card deployment">
+
+          <div class="deployment-header">
+
+            <div class="environment">
+
+              <div class="environment-icon">
+                STG
+              </div>
+
+              <div>
+                <h4>Staging Environment</h4>
+                <p>Automated verification</p>
+              </div>
+
+            </div>
+
+            <span class="badge">
+              VERIFIED
+            </span>
+
+          </div>
+
+
+          <div class="details">
+
+            <div class="detail-row">
+              <span>Deployment</span>
+              <span>Docker Container</span>
+            </div>
+
+            <div class="detail-row">
+              <span>Port</span>
+              <span>3000:3000</span>
+            </div>
+
+            <div class="detail-row">
+              <span>Health</span>
+              <span id="stagingHealth">
+                Checking...
+              </span>
+            </div>
+
+            <div class="detail-row">
+              <span>Image Strategy</span>
+              <span>Immutable Digest</span>
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- PRODUCTION -->
+
+        <div class="card deployment">
+
+          <div class="deployment-header">
+
+            <div class="environment">
+
+              <div class="environment-icon">
+                AZ
+              </div>
+
+              <div>
+                <h4>Production Environment</h4>
+                <p>Azure VM deployment</p>
+              </div>
+
+            </div>
+
+            <span class="badge">
+              LIVE
+            </span>
+
+          </div>
+
+
+          <div class="details">
+
+            <div class="detail-row">
+              <span>Platform</span>
+              <span>Azure VM</span>
+            </div>
+
+            <div class="detail-row">
+              <span>Container</span>
+              <span>cloudpulse-api</span>
+            </div>
+
+            <div class="detail-row">
+              <span>Port</span>
+              <span>3000</span>
+            </div>
+
+            <div class="detail-row">
+              <span>Restart Policy</span>
+              <span>unless-stopped</span>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =======================================================
+         DEVSECOPS CONTROLS
+    ======================================================== -->
+
+    <section class="section">
+
+      <div class="section-title">
+
+        <h3>
+          Security & Delivery Controls
+        </h3>
+
+        <span>
+          Pipeline configuration
+        </span>
+
+      </div>
+
+
+      <div class="grid">
+
+        <div class="card metric-card">
+
+          <div class="metric-top">
+            <span class="metric-label">
+              Secret Scanning
+            </span>
+
+            <div class="metric-icon">
+              ✓
+            </div>
+          </div>
+
+          <div class="metric-value">
+            Gitleaks
+          </div>
+
+          <div class="metric-sub">
+            Enabled in CI
+          </div>
+
+        </div>
+
+
+        <div class="card metric-card">
+
+          <div class="metric-top">
+            <span class="metric-label">
+              Container Security
+            </span>
+
+            <div class="metric-icon">
+              ✓
+            </div>
+          </div>
+
+          <div class="metric-value">
+            Trivy
+          </div>
+
+          <div class="metric-sub">
+            HIGH / CRITICAL gate
+          </div>
+
+        </div>
+
+
+        <div class="card metric-card">
+
+          <div class="metric-top">
+            <span class="metric-label">
+              Image Signing
+            </span>
+
+            <div class="metric-icon">
+              ✓
+            </div>
+          </div>
+
+          <div class="metric-value">
+            Cosign
+          </div>
+
+          <div class="metric-sub">
+            Signed image digest
+          </div>
+
+        </div>
+
+
+        <div class="card metric-card">
+
+          <div class="metric-top">
+            <span class="metric-label">
+              Deployment
+            </span>
+
+            <div class="metric-icon">
+              ✓
+            </div>
+          </div>
+
+          <div class="metric-value">
+            Digest
+          </div>
+
+          <div class="metric-sub">
+            Immutable image deployment
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+  </main>
+
+
+  <!-- =========================================================
+       FOOTER
+  ========================================================== -->
+
+  <footer>
+
+    <div>
+      CloudPulse API • DevSecOps Dashboard
+    </div>
+
+    <div class="refresh-info">
+      Live endpoint refresh every 10 seconds
+      • Last update:
+      <span id="footerTime">—</span>
+    </div>
+
+  </footer>
+
+
+  <!-- =========================================================
+       JAVASCRIPT
+  ========================================================== -->
+
+  <script>
+
+    /*
+     * ---------------------------------------------------------
+     * Utility
+     * ---------------------------------------------------------
+     */
+
+    function formatJSON(data) {
+      return JSON.stringify(data, null, 2);
+    }
+
+
+    function formatUptime(seconds) {
+
+      if (!seconds || isNaN(seconds)) {
+        return "—";
+      }
+
+      const days = Math.floor(seconds / 86400);
+
+      const hours = Math.floor(
+        (seconds % 86400) / 3600
+      );
+
+      const minutes = Math.floor(
+        (seconds % 3600) / 60
+      );
+
+      const secs = Math.floor(
+        seconds % 60
+      );
+
+      if (days > 0) {
+        return `${days}d ${hours}h`;
+      }
+
+      if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+      }
+
+      if (minutes > 0) {
+        return `${minutes}m ${secs}s`;
+      }
+
+      return `${secs}s`;
+    }
+
+
+    function setEndpointStatus(
+      dotId,
+      statusId,
+      success,
+      text
+    ) {
+
+      const dot =
+        document.getElementById(dotId);
+
+      const status =
+        document.getElementById(statusId);
+
+      dot.classList.remove(
+        "success",
+        "error"
+      );
+
+      if (success) {
+
+        dot.classList.add("success");
+
+        status.textContent =
+          text || "Operational";
+
+      } else {
+
+        dot.classList.add("error");
+
+        status.textContent =
+          text || "Unavailable";
+      }
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * /health
+     * ---------------------------------------------------------
+     */
+
+    async function checkHealth() {
+
+      try {
+
+        const response =
+          await fetch(
+            "/health",
+            {
+              cache: "no-store"
+            }
+          );
+
+        const data =
+          await response.json();
+
+        document.getElementById(
+          "healthResponse"
+        ).textContent =
+          formatJSON(data);
+
+        setEndpointStatus(
+          "healthDot",
+          "healthStatus",
+          response.ok,
+          response.ok
+            ? "200 OK • Operational"
+            : `${response.status} Error`
+        );
+
+        if (response.ok) {
+
+          document.getElementById(
+            "apiStatus"
+          ).textContent =
+            "ONLINE";
+
+          document.getElementById(
+            "apiStatusSub"
+          ).textContent =
+            "API responding normally";
+        }
+
+      } catch (error) {
+
+        document.getElementById(
+          "healthResponse"
+        ).textContent =
+          error.message;
+
+        setEndpointStatus(
+          "healthDot",
+          "healthStatus",
+          false,
+          "Connection failed"
+        );
+
+        document.getElementById(
+          "apiStatus"
+        ).textContent =
+          "OFFLINE";
+
+        document.getElementById(
+          "apiStatusSub"
+        ).textContent =
+          "Unable to reach API";
+      }
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * /healthz
+     * ---------------------------------------------------------
+     */
+
+    async function checkHealthz() {
+
+      try {
+
+        const response =
+          await fetch(
+            "/healthz",
+            {
+              cache: "no-store"
+            }
+          );
+
+        const data =
+          await response.json();
+
+        document.getElementById(
+          "healthzResponse"
+        ).textContent =
+          formatJSON(data);
+
+        setEndpointStatus(
+          "healthzDot",
+          "healthzStatus",
+          response.ok,
+          response.ok
+            ? "200 OK • Healthy"
+            : `${response.status} Error`
+        );
+
+        if (data.uptime) {
+
+          document.getElementById(
+            "uptime"
+          ).textContent =
+            formatUptime(data.uptime);
+        }
+
+      } catch (error) {
+
+        document.getElementById(
+          "healthzResponse"
+        ).textContent =
+          error.message;
+
+        setEndpointStatus(
+          "healthzDot",
+          "healthzStatus",
+          false,
+          "Connection failed"
+        );
+      }
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * /api/v1/pulse
+     * ---------------------------------------------------------
+     */
+
+    async function checkPulse() {
+
+      try {
+
+        const response =
+          await fetch(
+            "/api/v1/pulse",
+            {
+              cache: "no-store"
+            }
+          );
+
+        const data =
+          await response.json();
+
+        document.getElementById(
+          "pulseResponse"
+        ).textContent =
+          formatJSON(data);
+
+        setEndpointStatus(
+          "pulseDot",
+          "pulseStatus",
+          response.ok,
+          response.ok
+            ? "200 OK • Operational"
+            : `${response.status} Error`
+        );
+
+        if (data.version) {
+
+          document.getElementById(
+            "appVersion"
+          ).textContent =
+            `v${data.version}`;
+        }
+
+      } catch (error) {
+
+        document.getElementById(
+          "pulseResponse"
+        ).textContent =
+          error.message;
+
+        setEndpointStatus(
+          "pulseDot",
+          "pulseStatus",
+          false,
+          "Connection failed"
+        );
+      }
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * Refresh dashboard
+     * ---------------------------------------------------------
+     */
+
+    async function refreshDashboard() {
+
+      await Promise.all([
+        checkHealth(),
+        checkHealthz(),
+        checkPulse()
+      ]);
+
+      const now =
+        new Date();
+
+      const time =
+        now.toLocaleTimeString();
+
+      document.getElementById(
+        "lastCheck"
+      ).textContent =
+        time;
+
+      document.getElementById(
+        "footerTime"
+      ).textContent =
+        time;
+
+      document.getElementById(
+        "stagingHealth"
+      ).textContent =
+        "Verified";
+    }
+
+
+    /*
+     * Initial load
+     */
+
+    refreshDashboard();
+
+
+    /*
+     * Auto refresh every 10 seconds
+     */
+
+    setInterval(
+      refreshDashboard,
+      10000
+    );
+
+  </script>
+
+</body>
+</html>

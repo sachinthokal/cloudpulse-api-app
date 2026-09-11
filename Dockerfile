@@ -22,6 +22,12 @@ COPY --chown=node:node --from=builder /app/node_modules ./node_modules
 COPY --chown=node:node package*.json ./
 COPY --chown=node:node src/ ./src/
 
+# FIX: Static UI साठी public फोल्डर कॉपी करणे
+COPY --chown=node:node public/ ./public/
+
+# जर app.js रूट डिरेक्टरीमध्ये असेल तर हे अनकमेंट करा:
+# COPY --chown=node:node app.js ./
+
 EXPOSE 3000
 
 USER node
