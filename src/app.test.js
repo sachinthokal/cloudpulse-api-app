@@ -13,4 +13,11 @@ describe('CloudPulse API Endpoints', () => {
     expect(res.statusCode).toEqual(200);
     expect(res.body.service).toBe('cloudpulse-api');
   });
+
+  it('GET /health should return 200 and UP status', async () => {
+    const res = await request(app).get('/health');
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.status).toBe('UP');
+  });
+  
 });
