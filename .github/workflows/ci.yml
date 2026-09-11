@@ -150,3 +150,69 @@ jobs:
           COSIGN_YES: "true"
         run: |
           cosign sign ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }}
+
+  # -------------------------------------------------------------
+  # Job 3: Automated Staging Deployment & Health Verification
+  # -------------------------------------------------------------
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [docker-build]
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and Run Staging Container
+        run: |
+          echo "Pulling verified image from GHCR..."
+          docker pull ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+
+          echo "Starting Staging Container..."
+          docker run -d --name staging-app -p 3000:3000 ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+
+          echo "Waiting for app to initialize..."
+          sleep 3
+
+      - name: Verify Staging Health Check
+        run: |
+          echo "Verifying /health endpoint..."
+          curl --fail --retry 3 --retry-delay 2 http://localhost:3000/health || exit 1
+          echo "Staging Deployment & Health Check SUCCESSFUL!"
+
+  # -------------------------------------------------------------
+  # Job 4: Gated Production Delivery (Requires Manual Approval)
+  # -------------------------------------------------------------
+  deploy-production:
+    name: Deploy to Production
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and Run Production Container
+        run: |
+          echo "Pulling immutable image for Production..."
+          docker pull ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+
+          echo "Deploying to Production Container..."
+          docker run -d --name prod-app -p 3000:3000 ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          sleep 3
+
+      - name: Verify Production Health Check
+        run: |
+          echo "Verifying Production /health endpoint..."
+          curl --fail --retry 3 --retry-delay 2 http://localhost:3000/health || exit 1
+          echo "Production Release Live & Healthy!"
