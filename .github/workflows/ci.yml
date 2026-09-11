@@ -179,12 +179,18 @@ jobs:
           docker run -d --name staging-app -p 3000:3000 ghcr.io/${{ github.repository }}:${IMAGE_TAG}
 
           echo "Waiting for app to initialize..."
-          sleep 3
+          sleep 5
+
+          echo "Checking container status..."
+          docker ps -a
 
       - name: Verify Staging Health Check
         run: |
+          echo "Container Logs:"
+          docker logs staging-app
+
           echo "Verifying /health endpoint..."
-          curl --fail --retry 3 --retry-delay 2 http://localhost:3000/health || exit 1
+          curl --fail --retry 5 --retry-connrefused --retry-delay 2 http://127.0.0.1:3000/health || exit 1
           echo "Staging Deployment & Health Check SUCCESSFUL!"
 
   # -------------------------------------------------------------
@@ -205,18 +211,26 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull and Run Production Container
+      - name: Pull and Run Staging Container
         run: |
           IMAGE_TAG="sha-${GITHUB_SHA:0:7}"
-          echo "Pulling immutable image tag: ${IMAGE_TAG} for Production..."
+          echo "Pulling verified image tag: ${IMAGE_TAG} from GHCR..."
           docker pull ghcr.io/${{ github.repository }}:${IMAGE_TAG}
 
-          echo "Deploying to Production Container..."
-          docker run -d --name prod-app -p 3000:3000 ghcr.io/${{ github.repository }}:${IMAGE_TAG}
-          sleep 3
+          echo "Starting Staging Container..."
+          docker run -d --name staging-app -p 3000:3000 ghcr.io/${{ github.repository }}:${IMAGE_TAG}
 
-      - name: Verify Production Health Check
+          echo "Waiting for app to initialize..."
+          sleep 5
+
+          echo "Checking container status..."
+          docker ps -a
+
+      - name: Verify Staging Health Check
         run: |
-          echo "Verifying Production /health endpoint..."
-          curl --fail --retry 3 --retry-delay 2 http://localhost:3000/health || exit 1
-          echo "Production Release Live & Healthy!"
+          echo "Container Logs:"
+          docker logs staging-app
+
+          echo "Verifying /health endpoint..."
+          curl --fail --retry 5 --retry-connrefused --retry-delay 2 http://127.0.0.1:3000/health || exit 1
+          echo "Staging Deployment & Health Check SUCCESSFUL!"
