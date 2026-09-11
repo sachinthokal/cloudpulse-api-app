@@ -125,7 +125,7 @@ jobs:
           path: cloudpulse-sbom.spdx.json
           retention-days: 30
 
-      # Push all tags only after Trivy passes
+      # Push all tags only after Trivy passes (Only on main push)
       - name: Push Docker Image with Tags to GHCR
         id: build-and-push
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -157,6 +157,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     needs: [docker-build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: staging
 
@@ -170,11 +171,12 @@ jobs:
 
       - name: Pull and Run Staging Container
         run: |
-          echo "Pulling verified image from GHCR..."
-          docker pull ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          IMAGE_TAG="sha-${GITHUB_SHA:0:7}"
+          echo "Pulling verified image tag: ${IMAGE_TAG} from GHCR..."
+          docker pull ghcr.io/${{ github.repository }}:${IMAGE_TAG}
 
           echo "Starting Staging Container..."
-          docker run -d --name staging-app -p 3000:3000 ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          docker run -d --name staging-app -p 3000:3000 ghcr.io/${{ github.repository }}:${IMAGE_TAG}
 
           echo "Waiting for app to initialize..."
           sleep 3
@@ -191,6 +193,7 @@ jobs:
   deploy-production:
     name: Deploy to Production
     needs: [deploy-staging]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: production
 
@@ -204,11 +207,12 @@ jobs:
 
       - name: Pull and Run Production Container
         run: |
-          echo "Pulling immutable image for Production..."
-          docker pull ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          IMAGE_TAG="sha-${GITHUB_SHA:0:7}"
+          echo "Pulling immutable image tag: ${IMAGE_TAG} for Production..."
+          docker pull ghcr.io/${{ github.repository }}:${IMAGE_TAG}
 
           echo "Deploying to Production Container..."
-          docker run -d --name prod-app -p 3000:3000 ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          docker run -d --name prod-app -p 3000:3000 ghcr.io/${{ github.repository }}:${IMAGE_TAG}
           sleep 3
 
       - name: Verify Production Health Check
