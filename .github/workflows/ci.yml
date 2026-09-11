@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
   packages: write
-  id-token: write # Cosign keyless signing
+  id-token: write
 
 jobs:
   # -------------------------------------------------------------
@@ -71,7 +71,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Docker Metadata Extraction (Docker Hub साठी dynamic tags)
       - name: Extract Docker Metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -82,7 +81,6 @@ jobs:
             type=sha,prefix=sha-,format=short
             type=semver,pattern={{version}}
 
-      # Docker Hub Login
       - name: Log in to Docker Hub
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: docker/login-action@v3
@@ -90,7 +88,6 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Local build for Trivy scanning
       - name: Build Docker Image Locally
         uses: docker/build-push-action@v5
         with:
@@ -100,7 +97,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # DevSecOps Gate: Trivy Scan
       - name: Run Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -110,7 +106,6 @@ jobs:
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
 
-      # Generate SBOM
       - name: Generate SBOM
         uses: aquasecurity/trivy-action@master
         with:
@@ -118,7 +113,6 @@ jobs:
           format: 'spdx-json'
           output: 'cloudpulse-sbom.spdx.json'
 
-      # Upload SBOM as an Artifact
       - name: Upload SBOM Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -126,8 +120,7 @@ jobs:
           path: cloudpulse-sbom.spdx.json
           retention-days: 14
 
-      # Push tags to Docker Hub
-      - name: Push Docker Image with Tags to Docker Hub
+      - name: Push Docker Image to Docker Hub
         id: build-and-push
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: docker/build-push-action@v5
@@ -139,12 +132,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Install Cosign
       - name: Install Cosign
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: sigstore/cosign-installer@v3
 
-      # Sign the Docker Hub image using Digest
       - name: Sign the Published Docker Image
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
@@ -173,6 +164,7 @@ jobs:
         run: |
           IMAGE_TAG="sha-${GITHUB_SHA:0:7}"
           DOCKER_USER="${{ vars.DOCKERHUB_USERNAME }}"
+
           echo "Pulling verified image tag: ${IMAGE_TAG} from Docker Hub..."
           docker pull \({DOCKER_USER}/cloudpulse-api-app:\){IMAGE_TAG}
 
@@ -182,17 +174,14 @@ jobs:
           echo "Waiting for app to initialize..."
           sleep 5
 
-          echo "Checking container status..."
           docker ps -a
 
       - name: Verify Staging Health Check
         run: |
-          echo "Container Logs:"
           echo "::group::stage-container-logs"
           docker logs staging-app
           echo "::endgroup::"
 
-          echo "Verifying /health endpoint..."
           curl --fail --retry 5 --retry-connrefused --retry-delay 2 http://127.0.0.1:3000/health || exit 1
           echo "Staging Deployment & Health Check SUCCESSFUL!"
 
@@ -210,7 +199,7 @@ jobs:
     steps:
       - name: Set Short SHA
         id: vars
-        run: echo "short_sha=\({GITHUB_SHA:0:7}" >>\)GITHUB_OUTPUT
+        run: echo "short_sha=\({GITHUB_SHA:0:7}" >> "\)GITHUB_OUTPUT"
 
       - name: Deploy to Azure VM via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -223,10 +212,10 @@ jobs:
             IMAGE_TAG="sha-${{ steps.vars.outputs.short_sha }}"
             DOCKER_USER="${{ vars.DOCKERHUB_USERNAME }}"
 
-            echo "Pulling latest image (${IMAGE_TAG}) from Docker Hub on Azure VM..."
+            echo "Pulling latest image (${IMAGE_TAG}) on Azure VM..."
             docker pull \({DOCKER_USER}/cloudpulse-api-app:\){IMAGE_TAG}
 
-            echo "Stopping old container if running..."
+            echo "Stopping old container..."
             docker stop cloudpulse-api || true
             docker rm cloudpulse-api || true
 
