@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
   packages: write
-  id-token: write # Required for Cosign keyless signing via GitHub OIDC
+  id-token: write # Cosign keyless signing
 
 jobs:
   # -------------------------------------------------------------
@@ -54,7 +54,7 @@ jobs:
         with:
           name: coverage-report
           path: coverage/
-          retention-days: 14 # Store coverage for 14 days to save storage
+          retention-days: 14
 
   # -------------------------------------------------------------
   # Job 2: Multi-Stage Build, Security Scanning, Tagging & Signing
@@ -71,31 +71,32 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Docker Metadata Extraction (Dynamic Tagging Strategy)
+      # Docker Metadata Extraction (Docker Hub साठी dynamic tags)
       - name: Extract Docker Metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ${{ vars.DOCKERHUB_USERNAME }}/cloudpulse-api-app
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=sha-,format=short
             type=semver,pattern={{version}}
 
-      - name: Log in to GitHub Container Registry (GHCR)
+      # Docker Hub Login
+      - name: Log in to Docker Hub
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Build & load locally for Trivy scanning
-      - name: Build Docker Image
+      # Local build for Trivy scanning
+      - name: Build Docker Image Locally
         uses: docker/build-push-action@v5
         with:
           context: .
           load: true
-          tags: ghcr.io/${{ github.repository }}:local-test
+          tags: ${{ vars.DOCKERHUB_USERNAME }}/cloudpulse-api-app:local-test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -103,17 +104,17 @@ jobs:
       - name: Run Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ghcr.io/${{ github.repository }}:local-test
+          image-ref: ${{ vars.DOCKERHUB_USERNAME }}/cloudpulse-api-app:local-test
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
 
-      # Generate SBOM (Software Bill of Materials)
+      # Generate SBOM
       - name: Generate SBOM
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ghcr.io/${{ github.repository }}:local-test
+          image-ref: ${{ vars.DOCKERHUB_USERNAME }}/cloudpulse-api-app:local-test
           format: 'spdx-json'
           output: 'cloudpulse-sbom.spdx.json'
 
@@ -123,10 +124,10 @@ jobs:
         with:
           name: sbom-report
           path: cloudpulse-sbom.spdx.json
-          retention-days: 30
+          retention-days: 14
 
-      # Push all tags only after Trivy passes (Only on main push)
-      - name: Push Docker Image with Tags to GHCR
+      # Push tags to Docker Hub
+      - name: Push Docker Image with Tags to Docker Hub
         id: build-and-push
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: docker/build-push-action@v5
@@ -143,13 +144,13 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: sigstore/cosign-installer@v3
 
-      # Sign the image using its exact immutable Digest
+      # Sign the Docker Hub image using Digest
       - name: Sign the Published Docker Image
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           COSIGN_YES: "true"
         run: |
-          cosign sign ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }}
+          cosign sign ${{ vars.DOCKERHUB_USERNAME }}/cloudpulse-api-app@${{ steps.build-and-push.outputs.digest }}
 
   # -------------------------------------------------------------
   # Job 3: Automated Staging Deployment & Health Verification
@@ -162,21 +163,21 @@ jobs:
     environment: staging
 
     steps:
-      - name: Log in to GHCR
+      - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Pull and Run Staging Container
         run: |
           IMAGE_TAG="sha-${GITHUB_SHA:0:7}"
-          echo "Pulling verified image tag: ${IMAGE_TAG} from GHCR..."
-          docker pull ghcr.io/${{ github.repository }}:${IMAGE_TAG}
+          DOCKER_USER="${{ vars.DOCKERHUB_USERNAME }}"
+          echo "Pulling verified image tag: ${IMAGE_TAG} from Docker Hub..."
+          docker pull ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
 
           echo "Starting Staging Container..."
-          docker run -d --name staging-app -p 3000:3000 ghcr.io/${{ github.repository }}:${IMAGE_TAG}
+          docker run -d --name staging-app -p 3000:3000 ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
 
           echo "Waiting for app to initialize..."
           sleep 5
@@ -187,17 +188,19 @@ jobs:
       - name: Verify Staging Health Check
         run: |
           echo "Container Logs:"
+          echo "::group::stage-container-logs"
           docker logs staging-app
+          echo "::endgroup::"
 
           echo "Verifying /health endpoint..."
           curl --fail --retry 5 --retry-connrefused --retry-delay 2 http://127.0.0.1:3000/health || exit 1
           echo "Staging Deployment & Health Check SUCCESSFUL!"
 
   # -------------------------------------------------------------
-  # Job 4: Gated Production Delivery (Requires Manual Approval)
+  # Job 4: Gated Production Delivery (Azure VM via SSH)
   # -------------------------------------------------------------
   deploy-production:
-    name: Deploy to Production
+    name: Deploy to Production (Azure VM)
     needs: [deploy-staging]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -205,35 +208,34 @@ jobs:
       name: production
 
     steps:
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+      - name: Deploy to Azure VM via SSH
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          host: ${{ vars.AZURE_VM_HOST }}
+          username: ${{ vars.AZURE_VM_USER }}
+          key: ${{ secrets.AZURE_VM_SSH_KEY }}
+          port: 22
+          script: |
+            IMAGE_TAG="sha-${GITHUB_SHA:0:7}"
+            DOCKER_USER="${{ vars.DOCKERHUB_USERNAME }}"
 
-      - name: Pull and Run Production Container
-        run: |
-          IMAGE_TAG="sha-${GITHUB_SHA:0:7}"
-          echo "Pulling verified image tag: ${IMAGE_TAG} from GHCR..."
-          docker pull ghcr.io/${{ github.repository }}:${IMAGE_TAG}
+            echo "Pulling latest image from Docker Hub on Azure VM..."
+            docker pull ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
 
-          echo "Starting Production Container..."
-          docker run -d --name prod-app -p 3000:3000 ghcr.io/${{ github.repository }}:${IMAGE_TAG}
+            echo "Stopping old container if running..."
+            docker stop cloudpulse-api || true
+            docker rm cloudpulse-api || true
 
-          echo "Waiting for app to initialize..."
-          sleep 5
+            echo "Starting new container on Azure VM..."
+            docker run -d \
+              --name cloudpulse-api \
+              --restart unless-stopped \
+              -p 3000:3000 \
+              ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
 
-          docker ps -a
+            echo "Waiting for app to initialize..."
+            sleep 5
 
-      - name: Verify Production Health Check
-        run: |
-          echo "=== Container Status ==="
-          docker inspect --format 'Status: {{.State.Status}}, ExitCode: {{.State.ExitCode}}, Error: {{.State.Error}}' prod-app
-
-          echo "=== Production Container Logs ==="
-          docker logs prod-app
-
-          echo "=== Verifying /health endpoint ==="
-          curl --fail -v --retry 5 --retry-connrefused --retry-delay 2 http://127.0.0.1:3000/health || exit 1
-          echo "Production Release Live & Healthy!"
+            echo "Verifying local health check on Azure VM..."
+            curl --fail http://127.0.0.1:3000/health || exit 1
+            echo "Production Deployment on Azure VM SUCCESSFUL!"
