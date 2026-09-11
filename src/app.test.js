@@ -18,6 +18,7 @@ describe('CloudPulse API Endpoints', () => {
     const res = await request(app).get('/api/v1/pulse');
     expect(res.statusCode).toEqual(200);
     expect(res.body.service).toBe('cloudpulse-api');
+    expect(res.body.telemetry).toBeDefined();
   });
 
   it('GET /health should return 200 and UP status', async () => {

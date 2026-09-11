@@ -1,16 +1,23 @@
 const express = require('express');
 const path = require('path');
+const os = require('os');
+
 const app = express();
 
 app.use(express.json());
 
-// 1 step back जाण्यासाठी '..' वापरले आहे:
-app.use(express.static(path.join(__dirname, '..', 'public')));
-
-// Root URL (/) वर index.html पाठवणे:
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+// Clean Structured Logging Middleware (Zero npm dependencies)
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
+    console.log(`[\({new Date().toISOString()}] [HTTP]\){req.method} \({req.originalUrl}\){res.statusCode} - ${duration}ms`);
+  });
+  next();
 });
+
+// Serve UI: index.html आपोआप रूट ('/') वर सर्व्ह होते
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.get('/healthz', (req, res) => {
   res.status(200).json({ status: 'healthy', uptime: process.uptime() });
@@ -34,7 +41,7 @@ app.get('/api/v1/pulse', (req, res) => {
     cloud_metadata: {
       provider: process.env.CLOUD_PROVIDER || 'azure',
       region: process.env.CLOUD_REGION || 'centralindia',
-      host_name: process.env.HOSTNAME || require('os').hostname()
+      host_name: process.env.HOSTNAME || os.hostname()
     },
     k8s_metadata: {
       pod_name: process.env.POD_NAME || null,
