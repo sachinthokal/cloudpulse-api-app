@@ -7,6 +7,10 @@ app.get('/healthz', (req, res) => {
   res.status(200).json({ status: 'healthy', uptime: process.uptime() });
 });
 
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'UP', timestamp: new Date() });
+});
+
 app.get('/api/v1/pulse', (req, res) => {
   res.status(200).json({
     service: 'cloudpulse-api',
