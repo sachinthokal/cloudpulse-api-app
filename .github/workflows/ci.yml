@@ -141,7 +141,7 @@ jobs:
         env:
           COSIGN_YES: "true"
         run: |
-          cosign sign \({{ vars.DOCKERHUB_USERNAME }}/cloudpulse-api-app@\){{ steps.build-and-push.outputs.digest }}
+          cosign sign ${{ vars.DOCKERHUB_USERNAME }}/cloudpulse-api-app@${{ steps.build-and-push.outputs.digest }}
 
   # -------------------------------------------------------------
   # Job 3: Automated Staging Deployment & Health Verification
