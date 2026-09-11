@@ -8,7 +8,7 @@ app.get('/healthz', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'UP', timestamp: new Date() });
+  res.status(200).json({ status: 'UP & Running', timestamp: new Date() });
 });
 
 app.get('/api/v1/pulse', (req, res) => {
