@@ -199,7 +199,7 @@ jobs:
     steps:
       - name: Set Short SHA
         id: vars
-        run: echo "short_sha=\({GITHUB_SHA:0:7}" >> "\)GITHUB_OUTPUT"
+        run: echo "short_sha=${GITHUB_SHA:0:7}" >> GITHUB_OUTPUT"
 
       - name: Deploy to Azure VM via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -213,7 +213,7 @@ jobs:
             DOCKER_USER="${{ vars.DOCKERHUB_USERNAME }}"
 
             echo "Pulling latest image (${IMAGE_TAG}) on Azure VM..."
-            docker pull \({DOCKER_USER}/cloudpulse-api-app:\){IMAGE_TAG}
+            docker pull ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
 
             echo "Stopping old container..."
             docker stop cloudpulse-api || true
@@ -224,7 +224,7 @@ jobs:
               --name cloudpulse-api \
               --restart unless-stopped \
               -p 3000:3000 \
-              \({DOCKER_USER}/cloudpulse-api-app:\){IMAGE_TAG}
+              ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
 
             echo "Waiting for app to initialize..."
             sleep 5
