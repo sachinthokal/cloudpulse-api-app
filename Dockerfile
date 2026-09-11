@@ -9,10 +9,13 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# OS package security upgrade
+# 1. OS पॅकेजेस अपडेट करा
 RUN apk update && apk upgrade --no-cache
 
-# Builder स्टेजमधून तयार झालेले node_modules आणि package.json थेट योग्य परवानग्यांसह आणा
+# 2. Trivy ने पकडलेला जुना npm CLI पूर्णपणे काढून टाका
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+
+# 3. Builder मधून node_modules आणि फाइल्स node परवानग्यांसह आणा
 COPY --chown=node:node --from=builder /app/node_modules ./node_modules
 COPY --chown=node:node package*.json ./
 COPY --chown=node:node src/ ./src/
