@@ -166,10 +166,10 @@ jobs:
           DOCKER_USER="${{ vars.DOCKERHUB_USERNAME }}"
 
           echo "Pulling verified image tag: ${IMAGE_TAG} from Docker Hub..."
-          docker pull \({DOCKER_USER}/cloudpulse-api-app:\){IMAGE_TAG}
+          docker pull ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
 
           echo "Starting Staging Container..."
-          docker run -d --name staging-app -p 3000:3000 \({DOCKER_USER}/cloudpulse-api-app:\){IMAGE_TAG}
+          docker run -d --name staging-app -p 3000:3000 ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
 
           echo "Waiting for app to initialize..."
           sleep 5
