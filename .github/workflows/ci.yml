@@ -216,7 +216,12 @@ jobs:
           key: ${{ secrets.AZURE_VM_SSH_KEY }}
           port: 22
           script: |
-            IMAGE_TAG="sha-${GITHUB_SHA:0:7}"
+            echo "::group::image-tags"
+            FULL_SHA_Demo="${{ github.sha }}"
+            IMAGE_TAG_Demo="sha-${FULL_SHA:0:7}"
+            echo "::endgroup::"
+
+            IMAGE_TAG="sha-${steps.build-and-push.outputs.tags}"
             DOCKER_USER="${{ vars.DOCKERHUB_USERNAME }}"
 
             echo "Pulling latest image from Docker Hub on Azure VM..."
