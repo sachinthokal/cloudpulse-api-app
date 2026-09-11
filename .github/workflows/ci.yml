@@ -12,6 +12,7 @@ permissions:
   id-token: write
 
 jobs:
+
   # -------------------------------------------------------------
   # Job 1: Quality, Secret & Dependency Security Gates
   # -------------------------------------------------------------
@@ -56,13 +57,17 @@ jobs:
           path: coverage/
           retention-days: 14
 
+
   # -------------------------------------------------------------
-  # Job 2: Multi-Stage Build, Security Scanning, Tagging & Signing
+  # Job 2: Build, Security Scan, Push & Sign
   # -------------------------------------------------------------
   docker-build:
-    name: Build, Tag, Scan & Cosign Image
+    name: Build, Scan, Push & Cosign Image
     needs: [quality-gate]
     runs-on: ubuntu-latest
+
+    outputs:
+      image_digest: ${{ steps.build-and-push.outputs.digest }}
 
     steps:
       - name: Checkout Code
@@ -88,6 +93,9 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # ---------------------------------------------------------
+      # Build image locally for security scanning
+      # ---------------------------------------------------------
       - name: Build Docker Image Locally
         uses: docker/build-push-action@v5
         with:
@@ -120,6 +128,9 @@ jobs:
           path: cloudpulse-sbom.spdx.json
           retention-days: 14
 
+      # ---------------------------------------------------------
+      # Push production image
+      # ---------------------------------------------------------
       - name: Push Docker Image to Docker Hub
         id: build-and-push
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -132,16 +143,24 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # ---------------------------------------------------------
+      # Install Cosign
+      # ---------------------------------------------------------
       - name: Install Cosign
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: sigstore/cosign-installer@v3
 
+      # ---------------------------------------------------------
+      # Sign exact image digest
+      # ---------------------------------------------------------
       - name: Sign the Published Docker Image
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           COSIGN_YES: "true"
         run: |
-          cosign sign ${{ vars.DOCKERHUB_USERNAME }}/cloudpulse-api-app@${{ steps.build-and-push.outputs.digest }}
+          cosign sign \
+            ${{ vars.DOCKERHUB_USERNAME }}/cloudpulse-api-app@${{ steps.build-and-push.outputs.digest }}
+
 
   # -------------------------------------------------------------
   # Job 3: Automated Staging Deployment & Health Verification
@@ -152,55 +171,76 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: staging
+
     outputs:
-      image_tag: ${{ steps.set-tag.outputs.image_tag }}
+      image_digest: ${{ needs.docker-build.outputs.image_digest }}
 
     steps:
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # ---------------------------------------------------------
+      # Pull EXACT immutable image using digest
+      # ---------------------------------------------------------
       - name: Pull and Run Staging Container
-        id: set-tag
+        env:
+          DOCKER_USER: ${{ vars.DOCKERHUB_USERNAME }}
+          IMAGE_DIGEST: ${{ needs.docker-build.outputs.image_digest }}
         run: |
-          IMAGE_TAG="sha-${GITHUB_SHA:0:7}"
-          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
-          DOCKER_USER="${{ vars.DOCKERHUB_USERNAME }}"
+          echo "Pulling verified image using immutable digest..."
+          echo "Digest: ${IMAGE_DIGEST}"
 
-          echo "Pulling verified image tag: ${IMAGE_TAG} from Docker Hub..."
-          docker pull ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
+          docker pull ${DOCKER_USER}/cloudpulse-api-app@${IMAGE_DIGEST}
 
           echo "Starting Staging Container..."
-          docker run -d --name staging-app -p 3000:3000 ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
+
+          docker run -d \
+            --name staging-app \
+            -p 3000:3000 \
+            ${DOCKER_USER}/cloudpulse-api-app@${IMAGE_DIGEST}
 
           echo "Waiting for app to initialize..."
           sleep 5
 
           docker ps -a
 
+      # ---------------------------------------------------------
+      # Staging health verification
+      # ---------------------------------------------------------
       - name: Verify Staging Health Check
         run: |
           echo "::group::stage-container-logs"
           docker logs staging-app
           echo "::endgroup::"
 
-          curl --fail --retry 5 --retry-connrefused --retry-delay 2 http://127.0.0.1:3000/health || exit 1
+          curl \
+            --fail \
+            --retry 5 \
+            --retry-connrefused \
+            --retry-delay 2 \
+            http://127.0.0.1:3000/health || exit 1
+
           echo "Staging Deployment & Health Check SUCCESSFUL!"
 
+
   # -------------------------------------------------------------
-  # Job 4: Gated Production Delivery (Azure VM via SSH)
+  # Job 4: Gated Production Delivery - Azure VM
   # -------------------------------------------------------------
   deploy-production:
     name: Deploy to Production (Azure VM)
     needs: [deploy-staging]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+
     environment:
       name: production
 
     steps:
+
       - name: Deploy to Azure VM via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -208,27 +248,63 @@ jobs:
           username: ${{ vars.AZURE_VM_USER }}
           key: ${{ secrets.AZURE_VM_SSH_KEY }}
           port: 22
+
           script: |
-            IMAGE_TAG="${{ needs.deploy-staging.outputs.image_tag }}"
+            IMAGE_DIGEST="${{ needs.deploy-staging.outputs.image_digest }}"
             DOCKER_USER="${{ vars.DOCKERHUB_USERNAME }}"
 
-            echo "Pulling latest image (${IMAGE_TAG}) on Azure VM..."
-            docker pull ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
+            echo "=========================================="
+            echo "Production Deployment"
+            echo "=========================================="
+            echo "Image Digest: ${IMAGE_DIGEST}"
 
+            # ---------------------------------------------------
+            # Pull EXACT image verified in staging
+            # ---------------------------------------------------
+            echo "Pulling exact image from Docker Hub..."
+
+            docker pull \
+              ${DOCKER_USER}/cloudpulse-api-app@${IMAGE_DIGEST}
+
+            # ---------------------------------------------------
+            # Stop existing container
+            # ---------------------------------------------------
             echo "Stopping old container..."
+
             docker stop cloudpulse-api || true
             docker rm cloudpulse-api || true
 
-            echo "Starting new container on Azure VM..."
+            # ---------------------------------------------------
+            # Start new production container
+            # ---------------------------------------------------
+            echo "Starting new production container..."
+
             docker run -d \
               --name cloudpulse-api \
               --restart unless-stopped \
               -p 3000:3000 \
-              ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
+              ${DOCKER_USER}/cloudpulse-api-app@${IMAGE_DIGEST}
 
+            # ---------------------------------------------------
+            # Wait for application startup
+            # ---------------------------------------------------
             echo "Waiting for app to initialize..."
+
             sleep 5
 
-            echo "Verifying local health check on Azure VM..."
-            curl --fail http://127.0.0.1:3000/health || exit 1
-            echo "Production Deployment on Azure VM SUCCESSFUL!"
+            # ---------------------------------------------------
+            # Production health check
+            # ---------------------------------------------------
+            echo "Verifying production health check..."
+
+            curl \
+              --fail \
+              --retry 5 \
+              --retry-connrefused \
+              --retry-delay 2 \
+              http://127.0.0.1:3000/health || exit 1
+
+            echo "=========================================="
+            echo "Production Deployment SUCCESSFUL!"
+            echo "Image Digest: ${IMAGE_DIGEST}"
+            echo "=========================================="
