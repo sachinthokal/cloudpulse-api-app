@@ -152,6 +152,8 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: staging
+    outputs:
+      image_tag: ${{ steps.set-tag.outputs.image_tag }}
 
     steps:
       - name: Log in to Docker Hub
@@ -161,8 +163,10 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Pull and Run Staging Container
+        id: set-tag
         run: |
           IMAGE_TAG="sha-${GITHUB_SHA:0:7}"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
           DOCKER_USER="${{ vars.DOCKERHUB_USERNAME }}"
 
           echo "Pulling verified image tag: ${IMAGE_TAG} from Docker Hub..."
@@ -197,20 +201,6 @@ jobs:
       name: production
 
     steps:
-      - name: Set Short SHA
-        id: vars
-        run: echo "short_sha=\({GITHUB_SHA:0:7}" >> "\)GITHUB_OUTPUT"
-
-      - name: Debug GITHUB_OUTPUT
-        run: |
-          echo "File Path: $GITHUB_OUTPUT"
-          echo "--- Contents of GITHUB_OUTPUT ---"
-          cat "$GITHUB_OUTPUT"
-
-      - name: Verify Output in Next Step
-        run: |
-          echo "Saved short sha is: ${{ steps.vars.outputs.short_sha }}"
-
       - name: Deploy to Azure VM via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -219,11 +209,11 @@ jobs:
           key: ${{ secrets.AZURE_VM_SSH_KEY }}
           port: 22
           script: |
-            IMAGE_TAG="sha-${{ steps.vars.outputs.short_sha }}"
+            IMAGE_TAG="${{ needs.deploy-staging.outputs.image_tag }}"
             DOCKER_USER="${{ vars.DOCKERHUB_USERNAME }}"
 
             echo "Pulling latest image (${IMAGE_TAG}) on Azure VM..."
-            docker pull \({DOCKER_USER}/cloudpulse-api-app:\){IMAGE_TAG}
+            docker pull ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
 
             echo "Stopping old container..."
             docker stop cloudpulse-api || true
@@ -234,7 +224,7 @@ jobs:
               --name cloudpulse-api \
               --restart unless-stopped \
               -p 3000:3000 \
-              \({DOCKER_USER}/cloudpulse-api-app:\){IMAGE_TAG}
+              ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
 
             echo "Waiting for app to initialize..."
             sleep 5
