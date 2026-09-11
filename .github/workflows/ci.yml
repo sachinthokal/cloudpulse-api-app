@@ -150,7 +150,7 @@ jobs:
         env:
           COSIGN_YES: "true"
         run: |
-          cosign sign ${{ vars.DOCKERHUB_USERNAME }}/cloudpulse-api-app@${{ steps.build-and-push.outputs.digest }}
+          cosign sign \({{ vars.DOCKERHUB_USERNAME }}/cloudpulse-api-app@\){{ steps.build-and-push.outputs.digest }}
 
   # -------------------------------------------------------------
   # Job 3: Automated Staging Deployment & Health Verification
@@ -174,10 +174,10 @@ jobs:
           IMAGE_TAG="sha-${GITHUB_SHA:0:7}"
           DOCKER_USER="${{ vars.DOCKERHUB_USERNAME }}"
           echo "Pulling verified image tag: ${IMAGE_TAG} from Docker Hub..."
-          docker pull ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
+          docker pull \({DOCKER_USER}/cloudpulse-api-app:\){IMAGE_TAG}
 
           echo "Starting Staging Container..."
-          docker run -d --name staging-app -p 3000:3000 ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
+          docker run -d --name staging-app -p 3000:3000 \({DOCKER_USER}/cloudpulse-api-app:\){IMAGE_TAG}
 
           echo "Waiting for app to initialize..."
           sleep 5
@@ -208,6 +208,10 @@ jobs:
       name: production
 
     steps:
+      - name: Set Short SHA
+        id: vars
+        run: echo "short_sha=\({GITHUB_SHA:0:7}" >>\)GITHUB_OUTPUT
+
       - name: Deploy to Azure VM via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -216,16 +220,11 @@ jobs:
           key: ${{ secrets.AZURE_VM_SSH_KEY }}
           port: 22
           script: |
-            echo "::group::image-tags"
-            FULL_SHA_Demo="${{ github.sha }}"
-            IMAGE_TAG_Demo="sha-${FULL_SHA:0:7}"
-            echo "::endgroup::"
-
-            IMAGE_TAG="sha-${steps.build-and-push.outputs.tags}"
+            IMAGE_TAG="sha-${{ steps.vars.outputs.short_sha }}"
             DOCKER_USER="${{ vars.DOCKERHUB_USERNAME }}"
 
-            echo "Pulling latest image from Docker Hub on Azure VM..."
-            docker pull ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
+            echo "Pulling latest image (${IMAGE_TAG}) from Docker Hub on Azure VM..."
+            docker pull \({DOCKER_USER}/cloudpulse-api-app:\){IMAGE_TAG}
 
             echo "Stopping old container if running..."
             docker stop cloudpulse-api || true
@@ -236,7 +235,7 @@ jobs:
               --name cloudpulse-api \
               --restart unless-stopped \
               -p 3000:3000 \
-              ${DOCKER_USER}/cloudpulse-api-app:${IMAGE_TAG}
+              \({DOCKER_USER}/cloudpulse-api-app:\){IMAGE_TAG}
 
             echo "Waiting for app to initialize..."
             sleep 5
