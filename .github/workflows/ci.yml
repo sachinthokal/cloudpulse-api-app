@@ -228,9 +228,12 @@ jobs:
 
       - name: Verify Production Health Check
         run: |
-          echo "Production Container Logs:"
+          echo "=== Container Status ==="
+          docker inspect --format 'Status: {{.State.Status}}, ExitCode: {{.State.ExitCode}}, Error: {{.State.Error}}' prod-app
+
+          echo "=== Production Container Logs ==="
           docker logs prod-app
 
-          echo "Verifying /health endpoint..."
-          curl --fail --retry 5 --retry-connrefused --retry-delay 2 http://127.0.0.1:3000/health || exit 1
+          echo "=== Verifying /health endpoint ==="
+          curl --fail -v --retry 5 --retry-connrefused --retry-delay 2 http://127.0.0.1:3000/health || exit 1
           echo "Production Release Live & Healthy!"
