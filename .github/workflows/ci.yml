@@ -264,7 +264,8 @@ jobs:
             echo "=========================================="
             echo "Production Deployment"
             echo "=========================================="
-            echo "Image Digest: ${IMAGE_DIGEST}"
+            echo "Image Digest: ${{IMAGE_DIGEST}}"
+            echo "Image Digest: $IMAGE_DIGEST"
 
             # ---------------------------------------------------
             # Pull EXACT image verified in staging
