@@ -194,7 +194,6 @@ jobs:
           docker pull ${DOCKER_USER}/cloudpulse-api-app@${IMAGE_DIGEST}
 
           echo "Starting Staging Container on Host Network..."
-          # --network host वापरल्याने docker-proxy चा रिसेटचा प्रॉब्लेम कायमचा मिटतो
           docker run -d \
             --name staging-app \
             --network host \
