@@ -227,6 +227,13 @@ jobs:
           echo ""
           echo "Staging Deployment & Health Check SUCCESSFUL!"
 
+      - name: Stop Staging Container
+        if: always()
+        run: |
+          echo "Stopping Staging Container..."
+          docker stop staging-app || true
+          docker rm staging-app || true
+
 
   # -------------------------------------------------------------
   # Job 4: Gated Production Delivery - Azure VM
@@ -331,11 +338,13 @@ jobs:
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### 📦 Deployed Artifact Metadata" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Commit SHA:** \`\({{ github.sha }}\`" >> "\)GITHUB_STEP_SUMMARY"
-          echo "- **Triggered By:** @\({{ github.actor }}" >> "\)GITHUB_STEP_SUMMARY"
+          echo "- **Commit SHA:** {{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Triggered By:** {{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Docker Image Digest:** {{ needs.deploy-staging.outputs.image_digest }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Triggered By:** {{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Docker Image Digest:**" >> "$GITHUB_STEP_SUMMARY"
           echo '```text' >> "$GITHUB_STEP_SUMMARY"
-          echo "\({{ needs.deploy-staging.outputs.image_digest }}" >> "\)GITHUB_STEP_SUMMARY"
+          echo "{{ needs.deploy-staging.outputs.image_digest }}" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "- **Live Telemetry URL:** [http://4.224.123.117:3000/](http://4.224.123.117:3000/)" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
