@@ -191,20 +191,20 @@ jobs:
           IMAGE_DIGEST: ${{ needs.docker-build.outputs.image_digest }}
         run: |
           echo "Pulling verified image using immutable digest..."
-          echo "Digest: ${IMAGE_DIGEST}"
+          docker pull \({DOCKER_USER}/cloudpulse-api-app@\){IMAGE_DIGEST}
 
-          docker pull ${DOCKER_USER}/cloudpulse-api-app@${IMAGE_DIGEST}
-
-          echo "Starting Staging Container..."
-
+          echo "Starting Staging Container on Host Network..."
+          # --network host वापरल्याने docker-proxy चा रिसेटचा प्रॉब्लेम कायमचा मिटतो
           docker run -d \
             --name staging-app \
-            -p 3000:3000 \
-            ${DOCKER_USER}/cloudpulse-api-app@${IMAGE_DIGEST}
+            --network host \
+            -e PORT=3000 \
+            \({DOCKER_USER}/cloudpulse-api-app@\){IMAGE_DIGEST}
 
-          echo "Waiting for app to initialize..."
-          sleep 5
+          echo "Waiting for app to boot..."
+          sleep 10
 
+          echo "Container status:"
           docker ps -a
 
       # ---------------------------------------------------------
@@ -216,13 +216,15 @@ jobs:
           docker logs staging-app
           echo "::endgroup::"
 
-          curl \
+          # --retry-all-errors मुळे Connection reset आला तरी तो 10 वेळा पुन्हा प्रयत्न करेल
+          curl -iv \
             --fail \
-            --retry 5 \
-            --retry-connrefused \
+            --retry 10 \
+            --retry-all-errors \
             --retry-delay 2 \
-            http://127.0.0.1:3000/health || exit 1
+            http://127.0.0.1:3000/health
 
+          echo ""
           echo "Staging Deployment & Health Check SUCCESSFUL!"
 
 

@@ -1,9 +1,13 @@
 const app = require('./app');
 
+const startupStart = Date.now();
+
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
 const server = app.listen(PORT, HOST, () => {
+  const startupTime = Date.now() - startupStart;
+
   const timestamp = new Date().toISOString();
   const environment = process.env.NODE_ENV || 'production';
 
@@ -17,6 +21,10 @@ const server = app.listen(PORT, HOST, () => {
 
   console.log(
     `[${timestamp}] [STARTUP] Health Endpoint: http://${HOST}:${PORT}/health`
+  );
+
+  console.log(
+    `[${timestamp}] [STARTUP] Startup Time: ${startupTime} ms (${(startupTime / 1000).toFixed(2)}s)`
   );
 });
 
